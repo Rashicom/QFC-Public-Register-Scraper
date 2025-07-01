@@ -2,9 +2,13 @@
 import math
 import requests
 from bs4 import BeautifulSoup
+from selenium import webdriver
+from selenium.webdriver.chrome.service import Service
+from webdriver_manager.chrome import ChromeDriverManager
+import time
 
 # helpers
-from helper import get_latest_qfc
+from helper import get_latest_qfc, get_pagination_bar, get_screen_documents_uris
 
 # open main window
 qfc_site_resp = requests.get("https://eservices.qfc.qa/qfcpublicregister/publicregister.aspx")
@@ -13,18 +17,39 @@ if qfc_site_resp.status_code != 200:
     raise Exception("Cannot get page")
 
 # get latest qfc
-latest_qfc_number = get_latest_qfc(qfc_site_resp)
+latest_qfc_number_str = get_latest_qfc(qfc_site_resp)
+latest_qfc_number = int(latest_qfc_number_str)
 
-start_from_qfc_number = input(f"Enter start from qfc number(default: {latest_qfc_number}) : ") or latest_qfc_number
-print(start_from_qfc_number)
+# get screen doc length
+page_lenght = len(get_screen_documents_uris(qfc_site_resp))
+print("page len", page_lenght)
 
-# pagination_bar_length = find pagibation length from page
-# diff = latest_qfc_number - start_from _qfc_num
-# target_page = math.ceil(diff/pagination_bar_len)
+start_from_qfc_number_str = input(f"Enter start from qfc number(default: {latest_qfc_number_str}) : ") or latest_qfc_number_str
+start_from_qfc_number = int(start_from_qfc_number_str)
+
+pagination_bar = get_pagination_bar(qfc_site_resp)
+pagination_bar_lenght = len(pagination_bar) + 1 # adding 1 because current page number is not in the list
+
+diff = latest_qfc_number - start_from_qfc_number
+if diff == 0:
+    target_page = 1
+else:
+    target_page = math.ceil(diff/page_lenght)
+
+# open page using selenium
+service = Service(ChromeDriverManager().install())
+driver = webdriver.Chrome(service=service)
+qfc_page = driver.get("https://eservices.qfc.qa/qfcpublicregister/publicregister.aspx")
+driver.maximize_window()
+time.sleep(5)
+
+uris = get_screen_documents_uris(driver, "driver")
 
 # while True:
-    # pagination_bar_length = find pagibation length from page
-    # page = set_page(target_page)
+for i in range(2):
+    print("Going to target page : ", target_page)
+    # open target_page(qfc_page)
+
     # if page is None:
         # return
     # documents_count = get_doc_count(page)
@@ -39,6 +64,6 @@ print(start_from_qfc_number)
         # write information to csv
 
         # close detail_page
-    # target_page += 1
+    target_page += 1
     
 
