@@ -8,7 +8,7 @@ from webdriver_manager.chrome import ChromeDriverManager
 import time
 
 # helpers
-from helper import get_latest_qfc, get_pagination_bar, get_screen_documents_uris
+from helper import get_latest_qfc, get_pagination_bar, get_screen_documents_uris, next_page, next_target_page
 
 # open main window
 qfc_site_resp = requests.get("https://eservices.qfc.qa/qfcpublicregister/publicregister.aspx")
@@ -30,11 +30,6 @@ start_from_qfc_number = int(start_from_qfc_number_str)
 pagination_bar = get_pagination_bar(qfc_site_resp)
 pagination_bar_lenght = len(pagination_bar) + 1 # adding 1 because current page number is not in the list
 
-diff = latest_qfc_number - start_from_qfc_number
-if diff == 0:
-    target_page = 1
-else:
-    target_page = math.ceil(diff/page_lenght)
 
 # open page using selenium
 service = Service(ChromeDriverManager().install())
@@ -43,15 +38,27 @@ qfc_page = driver.get("https://eservices.qfc.qa/qfcpublicregister/publicregister
 driver.maximize_window()
 time.sleep(5)
 
-uris = get_screen_documents_uris(driver, "driver")
+# navigate to the target page
+diff = latest_qfc_number - start_from_qfc_number
+if diff != 0:
+    # we have to go the target page, it should be > 1
+    # if diff is 0 then target page is 1(this page) not need to go to target
+    target_page = math.ceil(diff/page_lenght)
+    print(f"Going to target page :{target_page}")
+    driver = next_target_page(driver,target_page)
 
+# iterate through pages
 # while True:
-for i in range(2):
-    print("Going to target page : ", target_page)
+for i in range(1):
     # open target_page(qfc_page)
+    if i > 0:
+        driver = next_page(driver)
+    if driver is None:
+        raise Exception("Completed")
+    
+    uris = get_screen_documents_uris(driver, "driver")
+    print(">>>>>>>>>>>> :", uris)
 
-    # if page is None:
-        # return
     # documents_count = get_doc_count(page)
 
     # for row in page.rows till documents_count:
@@ -64,6 +71,4 @@ for i in range(2):
         # write information to csv
 
         # close detail_page
-    target_page += 1
-    
 
