@@ -8,7 +8,7 @@ from webdriver_manager.chrome import ChromeDriverManager
 import time
 
 # helpers
-from helper import get_latest_qfc, get_pagination_bar, get_screen_documents_uris, next_page, next_target_page
+from helper import get_latest_qfc, get_pagination_bar, get_screen_documents_uris, next_page, next_target_page, get_page_company_details
 
 # open main window
 qfc_site_resp = requests.get("https://eservices.qfc.qa/qfcpublicregister/publicregister.aspx")
@@ -56,10 +56,11 @@ for i in range(1):
     if driver is None:
         raise Exception("Completed")
     
-    uris = get_screen_documents_uris(driver, "driver")
-    print(">>>>>>>>>>>> :", uris)
+    # read all company details of this page
+    data = get_page_company_details(driver)
+        
 
-    # documents_count = get_doc_count(page)
+        
 
     # for row in page.rows till documents_count:
         # continue if qfc number is top of defined qfc

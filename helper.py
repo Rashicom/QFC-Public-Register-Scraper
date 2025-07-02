@@ -29,8 +29,12 @@ def get_screen_documents_uris(qfc_site=None, origin="request"):
     for i,cont in enumerate(content_divs):
         qfc_div = cont.find('div', class_='qfc-number')
         a_tag = qfc_div.find_all('a')[-1]
+        spans = qfc_div.find_all('span')
         if a_tag.get('href') != "#":
-            documents.append(a_tag.get('href'))
+            documents.append({
+                "href": a_tag.get('href'),
+                "qfc_number": spans[1].get_text(strip=True)
+            })
 
     return documents
     
@@ -68,3 +72,81 @@ def next_target_page(driver, target_page, timeout=10):
         print("next page")
         driver = next_page(driver)
     return driver
+
+
+def get_register_details(company_page):
+    soup = BeautifulSoup(company_page.page_source, 'html.parser')
+    
+    # 1. Company Name
+    company_name = soup.find('span', id='lblFirmArabicName').text.strip()
+    company_name = soup.find('span', id='lblFirmTitle').text.strip()
+
+    # 2. QFC Number
+    qfc_number = soup.find('span', id='lblFirmNo')
+    qfc_number = qfc_number.text.strip() if qfc_number else ''
+
+    # 3. Details of Registration
+    registration_info = {}
+    registration_section = soup.select_one('.innerpage-details-registration .registration-title:contains("details of registration")')
+    if registration_section:
+        reg_items = registration_section.find_next('div', class_='registration-info').find_all('div', class_='registration-item')
+        for item in reg_items:
+            spans = item.find_all('span')
+            if len(spans) == 2:
+                key = spans[0].text.strip()
+                value = spans[1].text.strip()
+                registration_info[key] = value
+
+     # 4. Details of Licence
+    licence_info = {}
+    licence_section = soup.select_one('.innerpage-details-registration .registration-title:contains("details of licence")')
+    if licence_section:
+        lic_items = licence_section.find_next('div', class_='registration-info').find_all('div', class_='registration-item')
+        for item in lic_items:
+            spans = item.find_all('span')
+            if len(spans) == 2:
+                key = spans[0].text.strip()
+                value = spans[1].text.strip()
+                licence_info[key] = value
+    
+    return {
+        'company_name': company_name,
+        'qfc_number': qfc_number,
+        'registration_info': registration_info,
+        'licence_info': licence_info
+    }
+
+def get_page_company_details(driver):
+    wait = WebDriverWait(driver, 10)
+    pager = WebDriverWait(driver, 10).until(
+        EC.presence_of_element_located((By.CLASS_NAME, "public-register"))
+    )
+
+    qfc_links = driver.find_elements(By.CSS_SELECTOR, "div.qfc-informationResult div.qfc-number a")
+
+    
+    for i, link in enumerate(qfc_links):
+        href = link.get_attribute("href")
+        if href == "#":
+            continue
+        full_url = href if href.startswith("http") else f"https://eservices.qfc.qa/qfcpublicregister/{href}"
+
+        # Open new tab via JS
+        driver.execute_script("window.open(arguments[0]);", full_url)
+
+        # Switch to the new tab
+        driver.switch_to.window(driver.window_handles[-1])
+
+        # Wait for content to load
+        wait.until(EC.presence_of_element_located((By.TAG_NAME, "body")))
+        
+        # fetch data
+        get_register_details(driver)
+
+        # Close the tab
+        driver.close()
+
+        # Switch back to main tab
+        driver.switch_to.window(driver.window_handles[0])
+
+
