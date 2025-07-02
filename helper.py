@@ -7,6 +7,7 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 import time
+import csv
 
 # get latest qfc_number from content
 def get_latest_qfc(qfc_site):
@@ -42,7 +43,6 @@ def get_screen_documents_uris(qfc_site=None, origin="request"):
 def get_pagination_bar(qfc_site):
     soup = BeautifulSoup(qfc_site.content, 'html.parser')
     content_id = soup.find('span', id='PrCompanyPager')
-    print(content_id.prettify())
     a_list = content_id.find_all('a')
     result = [a.get_text(strip=True) for a in a_list if a.get_text(strip=True) not in {">", "<", "..."}]
     return result
@@ -123,11 +123,12 @@ def get_page_company_details(driver):
     )
 
     qfc_links = driver.find_elements(By.CSS_SELECTOR, "div.qfc-informationResult div.qfc-number a")
-
+    result = []
     
     for i, link in enumerate(qfc_links):
         href = link.get_attribute("href")
-        if href == "#":
+        print(f"object :{i}, href: {href}")
+        if "#" in href:
             continue
         full_url = href if href.startswith("http") else f"https://eservices.qfc.qa/qfcpublicregister/{href}"
 
@@ -141,7 +142,8 @@ def get_page_company_details(driver):
         wait.until(EC.presence_of_element_located((By.TAG_NAME, "body")))
         
         # fetch data
-        get_register_details(driver)
+        scrapped_data = get_register_details(driver)
+        result.append(scrapped_data)
 
         # Close the tab
         driver.close()
@@ -149,4 +151,92 @@ def get_page_company_details(driver):
         # Switch back to main tab
         driver.switch_to.window(driver.window_handles[0])
 
+    return result
+
+
+def flatten_company_data(company_data):
+    flattened = {
+        'Company Name': company_data['company_name'],
+        'QFC Number': company_data['qfc_number'],
+    }
+
+    # Flatten registration info
+    for key, value in company_data.get('registration_info', {}).items():
+        flattened[f"Reg - {key}"] = value
+
+    # Flatten licence info
+    for key, value in company_data.get('licence_info', {}).items():
+        flattened[f"Lic - {key}"] = value
+
+    return flattened
+
+
+import csv
+import os
+
+def flatten_company_data(company_data):
+    flattened = {
+        'Company Name': company_data['company_name'],
+        'QFC Number': company_data['qfc_number'],
+    }
+
+    for key, value in company_data.get('registration_info', {}).items():
+        flattened[f"Reg - {key}"] = value
+
+    for key, value in company_data.get('licence_info', {}).items():
+        flattened[f"Lic - {key}"] = value
+
+    return flattened
+
+
+import csv
+import os
+
+def write_company_list_to_csv(data_list, filename='qfc_companies.csv'):
+    flattened_data = [flatten_company_data(item) for item in data_list]
+
+    if not flattened_data:
+        print("⚠️ No data to write.")
+        return
+
+    # Preserve field order while detecting new fields
+    fieldnames = []
+    all_fields_set = set()
+    for item in flattened_data:
+        for key in item.keys():
+            if key not in all_fields_set:
+                fieldnames.append(key)
+                all_fields_set.add(key)
+
+    file_exists = os.path.exists(filename)
+    file_has_data = os.path.getsize(filename) > 0 if file_exists else False
+
+    existing_data = []
+    existing_fieldnames = []
+
+    if file_has_data:
+        with open(filename, 'r', encoding='utf-8') as f:
+            reader = csv.DictReader(f)
+            existing_fieldnames = reader.fieldnames or []
+            existing_data = list(reader)
+
+        # Combine fieldnames: keep existing order, append new fields
+        combined_fieldnames = existing_fieldnames.copy()
+        for field in fieldnames:
+            if field not in combined_fieldnames:
+                combined_fieldnames.append(field)
+    else:
+        combined_fieldnames = fieldnames
+
+    # Combine old + new data
+    all_data = existing_data + flattened_data
+
+    # Write (or rewrite) full CSV
+    with open(filename, 'w', newline='', encoding='utf-8') as f:
+        writer = csv.DictWriter(f, fieldnames=combined_fieldnames)
+        writer.writeheader()
+        for row in all_data:
+            writer.writerow({key: row.get(key, '') for key in combined_fieldnames})
+
+    print(f"✅ CSV updated: {filename} (rows written: {len(all_data)})")
 

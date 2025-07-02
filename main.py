@@ -8,7 +8,7 @@ from webdriver_manager.chrome import ChromeDriverManager
 import time
 
 # helpers
-from helper import get_latest_qfc, get_pagination_bar, get_screen_documents_uris, next_page, next_target_page, get_page_company_details
+from helper import get_latest_qfc, get_pagination_bar, get_screen_documents_uris, next_page, next_target_page, get_page_company_details, flatten_company_data, write_company_list_to_csv
 
 # open main window
 qfc_site_resp = requests.get("https://eservices.qfc.qa/qfcpublicregister/publicregister.aspx")
@@ -22,7 +22,6 @@ latest_qfc_number = int(latest_qfc_number_str)
 
 # get screen doc length
 page_lenght = len(get_screen_documents_uris(qfc_site_resp))
-print("page len", page_lenght)
 
 start_from_qfc_number_str = input(f"Enter start from qfc number(default: {latest_qfc_number_str}) : ") or latest_qfc_number_str
 start_from_qfc_number = int(start_from_qfc_number_str)
@@ -49,7 +48,7 @@ if diff != 0:
 
 # iterate through pages
 # while True:
-for i in range(1):
+for i in range(2):
     # open target_page(qfc_page)
     if i > 0:
         driver = next_page(driver)
@@ -57,9 +56,19 @@ for i in range(1):
         raise Exception("Completed")
     
     # read all company details of this page
+    print(f"Scraping page : {i+1}")
     data = get_page_company_details(driver)
-        
+    print(data)
 
+    # write batch data to csv
+    print("Data Writing to csv")
+    write_company_list_to_csv(data)
+    print("Data write Complete")
+
+
+    # write this page details to csv
+    # each page contains about 30 records
+    # update each buld record to csv
         
 
     # for row in page.rows till documents_count:
