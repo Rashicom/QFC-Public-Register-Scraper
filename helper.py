@@ -48,7 +48,7 @@ def get_pagination_bar(qfc_site):
     return result
 
 
-def next_page(driver, timeout=10):
+def next_page(driver, timeout=20):
     pager = WebDriverWait(driver, timeout).until(
         EC.presence_of_element_located((By.ID, "PrCompanyPager"))
     )
@@ -59,7 +59,7 @@ def next_page(driver, timeout=10):
     # Find all <a> elements inside the pager
     links = pager.find_elements(By.TAG_NAME, 'a')
     links[-1].click()
-
+    time.sleep(2)
     # Wait until the pager's HTML changes (indicating new page is loaded)
     WebDriverWait(driver, timeout).until(
         lambda d: d.find_element(By.ID, "PrCompanyPager").get_attribute('innerHTML') != old_pager_html
@@ -69,7 +69,7 @@ def next_page(driver, timeout=10):
 def next_target_page(driver, target_page, timeout=10):
     # press next page button till target_page
     for i in range(target_page-1):
-        print("next page")
+        print(f"next page : {i+1}")
         driver = next_page(driver)
     return driver
 
@@ -127,7 +127,8 @@ def get_page_company_details(driver):
     
     for i, link in enumerate(qfc_links):
         href = link.get_attribute("href")
-        print(f"object :{i}, href: {href}")
+        qfcnum = link.text.strip()
+        print(f"object :{i}, {qfcnum}")
         if "#" in href:
             continue
         full_url = href if href.startswith("http") else f"https://eservices.qfc.qa/qfcpublicregister/{href}"
