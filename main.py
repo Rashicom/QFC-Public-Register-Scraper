@@ -51,10 +51,14 @@ if diff != 0:
     target_page = math.ceil(diff/page_lenght)
     print(f"Going to target page :{target_page}")
     driver = next_target_page(driver,target_page)
+else:
+    target_page = 1
+
+page_limit = input(f"How many page do you want to scrap from page no : {target_page}")
 
 # iterate through pages
 # while True:
-for i in range(2):
+for i in range(page_limit):
     # open target_page(qfc_page)
     if i > 0:
         driver = next_page(driver)
