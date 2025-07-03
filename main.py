@@ -54,7 +54,7 @@ if diff != 0:
 else:
     target_page = 1
 
-page_limit = input(f"How many page do you want to scrap from page no : {target_page}")
+page_limit = int(input(f"How many page do you want to scrap from page no : {target_page}"))
 
 # iterate through pages
 # while True:
