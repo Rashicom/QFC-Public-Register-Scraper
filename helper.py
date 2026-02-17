@@ -78,7 +78,6 @@ def get_register_details(company_page):
     soup = BeautifulSoup(company_page.page_source, 'html.parser')
     
     # 1. Company Name
-    company_name = soup.find('span', id='lblFirmArabicName').text.strip()
     company_name = soup.find('span', id='lblFirmTitle').text.strip()
 
     # 2. QFC Number
@@ -118,39 +117,50 @@ def get_register_details(company_page):
 
 def get_page_company_details(driver):
     wait = WebDriverWait(driver, 10)
-    pager = WebDriverWait(driver, 10).until(
-        EC.presence_of_element_located((By.CLASS_NAME, "public-register"))
-    )
+    wait.until(EC.presence_of_element_located((By.CLASS_NAME, "public-register")))
 
-    qfc_links = driver.find_elements(By.CSS_SELECTOR, "div.qfc-informationResult div.qfc-number a")
+    num_links = len(driver.find_elements(By.CSS_SELECTOR, "div.qfc-informationResult div.qfc-number a"))
     result = []
-    
-    for i, link in enumerate(qfc_links):
+
+    for i in range(num_links):
+        # Re-find the links every time to avoid stale element exception
+        qfc_links = driver.find_elements(By.CSS_SELECTOR, "div.qfc-informationResult div.qfc-number a")
+        
+        # Basic check if we are out of bounds
+        if i >= len(qfc_links):
+            print("Warning: index out of bounds for qfc_links")
+            break
+
+        link = qfc_links[i]
         href = link.get_attribute("href")
         qfcnum = link.text.strip()
         print(f"object :{i}, {qfcnum}")
+
         if "#" in href:
             continue
-        full_url = href if href.startswith("http") else f"https://eservices.qfc.qa/qfcpublicregister/{href}"
 
-        # Open new tab via JS
-        driver.execute_script("window.open(arguments[0]);", full_url)
+        # Instead of opening a new tab, just click it.
+        link.click()
 
-        # Switch to the new tab
-        driver.switch_to.window(driver.window_handles[-1])
+        # Wait for the details to load
+        try:
+            wait.until(EC.presence_of_element_located((By.ID, "lblFirmTitle")))
+        except Exception as e:
+            print(f"Could not load details for {qfcnum}. Going back. Error: {e}")
+            driver.back()
+            wait.until(EC.presence_of_element_located((By.CLASS_NAME, "public-register")))
+            continue
 
-        # Wait for content to load
-        wait.until(EC.presence_of_element_located((By.TAG_NAME, "body")))
         
         # fetch data
         scrapped_data = get_register_details(driver)
         result.append(scrapped_data)
 
-        # Close the tab
-        driver.close()
+        # Go back to the list page
+        driver.back()
 
-        # Switch back to main tab
-        driver.switch_to.window(driver.window_handles[0])
+        # Wait for the list to load again
+        wait.until(EC.presence_of_element_located((By.CLASS_NAME, "public-register")))
 
     return result
 
